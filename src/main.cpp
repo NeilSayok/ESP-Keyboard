@@ -25,14 +25,42 @@ String getPrompt() {
   }
 
   HTTPClient http;
+  
+  // Set timeouts to handle responses
+  http.setTimeout(30000);  // 30 seconds timeout
+  http.setConnectTimeout(10000);  // 10 seconds connect timeout
+  
   http.begin(apiUrl);
   http.addHeader("Content-Type", "application/json");
+  http.addHeader("User-Agent", "ESP32");
   
   String payload = "{\"message\": \"give me a new prompt related to java in one line to write a program and it should be related to automation, just a question nothing else.\"}";
   
   Keyboard.print("Making API call to get prompt...");
   Keyboard.write('\n');
   int httpResponseCode = http.POST(payload);
+  
+  // Add detailed error code interpretation
+  if (httpResponseCode < 0) {
+    Keyboard.print("HTTP Error Code: " + String(httpResponseCode));
+    Keyboard.write('\n');
+    
+    switch(httpResponseCode) {
+      case -1: Keyboard.print("Error: Connection failed"); break;
+      case -2: Keyboard.print("Error: Send header failed"); break;
+      case -3: Keyboard.print("Error: Send payload failed"); break;
+      case -4: Keyboard.print("Error: Not connected"); break;
+      case -5: Keyboard.print("Error: Connection lost"); break;
+      case -6: Keyboard.print("Error: No stream"); break;
+      case -7: Keyboard.print("Error: No HTTP server"); break;
+      case -8: Keyboard.print("Error: Too less RAM"); break;
+      case -9: Keyboard.print("Error: Encoding error"); break;
+      case -10: Keyboard.print("Error: Stream write error"); break;
+      case -11: Keyboard.print("Error: Read timeout"); break;
+      default: Keyboard.print("Error: Unknown HTTP error"); break;
+    }
+    Keyboard.write('\n');
+  }
   
   String response = "";
   if (httpResponseCode > 0) {
@@ -83,14 +111,53 @@ String getResponse(String prompt) {
   }
 
   HTTPClient http;
+  
+  // Set timeouts to handle large responses
+  http.setTimeout(30000);  // 30 seconds timeout
+  http.setConnectTimeout(10000);  // 10 seconds connect timeout
+  
   http.begin(apiUrl);
   http.addHeader("Content-Type", "application/json");
+  http.addHeader("User-Agent", "ESP32");
   
-  String payload = "{\"message\": \"" + prompt + "\"}";
+  // Escape quotes in the prompt to prevent JSON syntax errors
+  String escapedPrompt = prompt;
+  escapedPrompt.replace("\"", "\\\"");
+  escapedPrompt.replace("\n", "\\n");
+  escapedPrompt.replace("\r", "\\r");
+  
+  String payload = "{\"message\": \"" + escapedPrompt + "\"}";
   
   Keyboard.print("Making API call to get response for prompt...");
   Keyboard.write('\n');
+  Keyboard.print("Payload length: " + String(payload.length()));
+  Keyboard.write('\n');
+  Keyboard.print("Payload: " + String(escapedPrompt));
+  Keyboard.write('\n');
+  
   int httpResponseCode = http.POST(payload);
+  
+  // Add detailed error code interpretation
+  if (httpResponseCode < 0) {
+    Keyboard.print("HTTP Error Code: " + String(httpResponseCode));
+    Keyboard.write('\n');
+    
+    switch(httpResponseCode) {
+      case -1: Keyboard.print("Error: Connection failed"); break;
+      case -2: Keyboard.print("Error: Send header failed"); break;
+      case -3: Keyboard.print("Error: Send payload failed"); break;
+      case -4: Keyboard.print("Error: Not connected"); break;
+      case -5: Keyboard.print("Error: Connection lost"); break;
+      case -6: Keyboard.print("Error: No stream"); break;
+      case -7: Keyboard.print("Error: No HTTP server"); break;
+      case -8: Keyboard.print("Error: Too less RAM"); break;
+      case -9: Keyboard.print("Error: Encoding error"); break;
+      case -10: Keyboard.print("Error: Stream write error"); break;
+      case -11: Keyboard.print("Error: Read timeout"); break;
+      default: Keyboard.print("Error: Unknown HTTP error"); break;
+    }
+    Keyboard.write('\n');
+  }
   
   String response = "";
   if (httpResponseCode > 0) {
@@ -251,6 +318,9 @@ void loop() {
     if (prompt.length() > 0) {
       Keyboard.print("Got prompt, now getting response...");
       Keyboard.write('\n');
+      
+      // Add delay between API calls to prevent server overload
+      delay(2000);
       
       // Step 2: Get response for the prompt
       String response = getResponse(prompt);
