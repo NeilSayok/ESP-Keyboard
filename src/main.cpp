@@ -1,23 +1,42 @@
 #include <Arduino.h>
-#include "USB.h"
-#include "USBHIDKeyboard.h"
+#include <BleKeyboard.h>
+#include <BLESecurity.h>
 
-USBHIDKeyboard Keyboard;
+// Create a BLE keyboard instance
+BleKeyboard bleKeyboard("ESP32-S3 Keyboard", "UG-LAND", 100);
 
 void setup() {
-  USB.begin();         // Start USB stack
-  Keyboard.begin();    // Start Keyboard
-  delay(2000);         // Give OS time to recognize device
+  Serial.begin(115200);
+  Serial.println("Starting BLE Keyboard...");
+
+  // Start BLE Keyboard
+  bleKeyboard.begin();
+
+  // Configure BLE security
+  BLESecurity *pSecurity = new BLESecurity();
+
+  // Require bonding (stores keys so reconnects work without re-pairing)
+  pSecurity->setAuthenticationMode(ESP_LE_AUTH_BOND);
+
+  // No input/output (so "Just Works" pairing method)
+  pSecurity->setCapability(ESP_IO_CAP_NONE);
+
+  // Encryption keys setup
+  pSecurity->setInitEncryptionKey(
+    ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK
+  );
 }
 
 void loop() {
-  // Generate a random number string
-  String msg = "Random_" + String(random(1000, 9999));
+  if (bleKeyboard.isConnected()) {
+    Serial.println("Connected, sending keys...");
 
-  // Type it like a keyboard
-  Keyboard.print(msg);
-  Keyboard.write('\n');   // Press Enter
+    // Type a random string every 3 seconds
+    bleKeyboard.print("Hello from ESP32-S3!\n");
 
-  delay(3000); // wait 3 seconds
+    delay(3000);
+  } else {
+    Serial.println("Waiting for connection...");
+    delay(1000);
+  }
 }
-
