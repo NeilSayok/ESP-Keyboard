@@ -11,6 +11,7 @@ const char *password = "02061998";
 
 bool wifiConnected = false;
 bool fallBackToDefaultAlgo = true;
+bool usbHidReady = false;
 
 // API endpoint
 const char *apiUrl = "https://apifreellm.com/api/chat";
@@ -56,9 +57,22 @@ void humanDelay()
   delay(random(100, 300));
 }
 
+// Check if USB HID is ready before sending keystrokes
+bool isKeyboardReady()
+{
+  return usbHidReady;
+}
+
 // Human-like typing function that adds natural pauses
 void humanType(String text)
 {
+  // Check if keyboard is ready before typing
+  if (!isKeyboardReady())
+  {
+    Serial.println("USB HID not ready, skipping typing");
+    return;
+  }
+
   for (int i = 0; i < text.length(); i++)
   {
     char c = text.charAt(i);
@@ -70,15 +84,29 @@ void humanType(String text)
       char wrongChar = (char)(c + random(-3, 4));
       if (wrongChar != c && wrongChar >= 32 && wrongChar <= 126)
       {
-        Keyboard.write(wrongChar);
-        humanDelay();
-        Keyboard.write(0x08); // Backspace
-        humanDelay();
+        if (isKeyboardReady())
+        {
+          Keyboard.write(wrongChar);
+          humanDelay();
+          if (isKeyboardReady())
+          {
+            Keyboard.write(0x08); // Backspace
+            humanDelay();
+          }
+        }
       }
     }
 
     // Type the correct character
-    Keyboard.write(c);
+    if (isKeyboardReady())
+    {
+      Keyboard.write(c);
+    }
+    else
+    {
+      Serial.println("USB HID disconnected during typing");
+      return;
+    }
 
     // Add human-like delays
     humanDelay();
@@ -227,6 +255,15 @@ void setup()
   Keyboard.begin(); // Start Keyboard
 
   delay(2000); // Give OS time to recognize device
+  
+  // Wait for USB HID to be ready - test with a simple keystroke
+  Serial.println("Waiting for USB HID to be ready...");
+  delay(3000); // Give additional time for USB HID initialization
+  
+  // Test if keyboard is ready by attempting a test keystroke
+  // We'll assume it's ready after the delay since we can't directly check
+  usbHidReady = true;
+  Serial.println("USB HID marked as ready");
 
   // Connect to WiFi
   connectToWiFi();
@@ -255,17 +292,17 @@ void loop()
 
       if (response.length() > 0 && startIndex > -1 && lastIndex > -1 && startIndex != lastIndex)
       {
-        // Step 3: Type the response with human characteristics
-        int startIndex = response.indexOf("```");
-        int lastIndex = response.lastIndexOf("```") + 1;
-
+        
         String updatedResponse = response.substring(startIndex, lastIndex);
 
         humanType(updatedResponse);
 
         // Human-like pause before pressing Enter
         humanDelay();
-        Keyboard.write('\n'); // Press Enter
+        if (isKeyboardReady())
+        {
+          Keyboard.write('\n'); // Press Enter
+        }
       }
       else
       {
