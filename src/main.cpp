@@ -4,6 +4,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
+#include "./library/include/prompt.h"
 
 // WiFi credentials - modify these for your network
 const char *ssid = "Boni Home Wifi";
@@ -12,11 +13,6 @@ const char *password = "02061998";
 bool wifiConnected = false;
 bool fallBackToDefaultAlgo = true;
 bool usbHidReady = false;
-
-// API endpoint
-const char *apiUrl = "https://apifreellm.com/api/chat";
-
-HTTPClient http;
 
 USBHIDKeyboard Keyboard;
 
@@ -119,118 +115,6 @@ void humanType(String text)
   }
 }
 
-String getPrompt()
-{
-  if (!wifiConnected)
-  {
-    return "";
-  }
-
-  HTTPClient http;
-
-  // Set timeouts to handle responses
-  http.setTimeout(90000);        // 30 seconds timeout
-  http.setConnectTimeout(90000); // 10 seconds connect timeout
-
-  http.begin(apiUrl);
-  http.addHeader("Content-Type", "application/json");
-  http.addHeader("User-Agent", "ESP32");
-
-  String payload = "{\"message\": \"give me a new prompt related to java in one line to write a program and it should be related to automation, just a question nothing else.\"}";
-
-  int httpResponseCode = http.POST(payload);
-
-  String response = "";
-  if (httpResponseCode > 0)
-  {
-    String responseBody = http.getString();
-
-    // Parse JSON response
-    DynamicJsonDocument doc(2048);
-    DeserializationError error = deserializeJson(doc, responseBody);
-
-    // Debug: print status value
-    String statusValue = doc["status"];
-
-    if (doc["status"] == "success")
-    {
-      response = doc["response"].as<String>();
-    }
-    else
-    {
-      response = "";
-    }
-  }
-
-  http.end();
-  return response;
-}
-
-String getResponse(String prompt)
-{
-  if (!wifiConnected || prompt.length() == 0)
-  {
-    return "";
-  }
-
-  HTTPClient http;
-
-  // Set timeouts to handle large responses
-  http.setTimeout(90000);        // 90 seconds timeout
-  http.setConnectTimeout(90000); // 90 seconds connect timeout
-
-  http.begin(apiUrl);
-  http.addHeader("Content-Type", "application/json");
-  http.addHeader("User-Agent", "ESP32");
-
-  // Escape quotes in the prompt to prevent JSON syntax errors
-  String escapedPrompt = prompt;
-  escapedPrompt.replace("\"", "\\\"");
-  escapedPrompt.replace("\n", "\\n");
-  escapedPrompt.replace("\r", "\\r");
-
-  String payload = "{\"message\": \"" + escapedPrompt + "\"}";
-
-  int httpResponseCode = http.POST(payload);
-
-  String response = "";
-  if (httpResponseCode > 0)
-  {
-    String responseBody = http.getString();
-
-    // Parse JSON response
-    DynamicJsonDocument doc(3000);
-    DeserializationError error = deserializeJson(doc, responseBody);
-
-    // Debug: print status value
-    String statusValue = doc["status"];
-
-    if (doc["status"] == "success")
-    {
-      response = doc["response"].as<String>();
-    }
-    else
-    {
-      response = "";
-    }
-  }
-  http.end();
-  return response;
-}
-
-String generateRandomString(int length)
-{
-  const char charset[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  String result = "";
-  for (int i = 0; i < length; i++)
-  {
-    int index = random(0, sizeof(charset) - 1);
-    result += charset[index];
-  }
-  return result;
-}
-
-
 void setup()
 {
   // Initialize Serial for debugging - must be first
@@ -249,17 +133,17 @@ void setup()
   USB.productName("Logitech Generic Keyboard");
   USB.manufacturerName("Logitech");
 
-   Serial.println("Device Renamed to Logitech");
+  Serial.println("Device Renamed to Logitech");
 
   USB.begin();      // Start USB stack
   Keyboard.begin(); // Start Keyboard
-
+  setKeyboard(Keyboard);
   delay(2000); // Give OS time to recognize device
-  
+
   // Wait for USB HID to be ready - test with a simple keystroke
   Serial.println("Waiting for USB HID to be ready...");
   delay(3000); // Give additional time for USB HID initialization
-  
+
   // Test if keyboard is ready by attempting a test keystroke
   // We'll assume it's ready after the delay since we can't directly check
   usbHidReady = true;
@@ -268,7 +152,6 @@ void setup()
   // Connect to WiFi
   connectToWiFi();
 }
-
 
 void loop()
 {
@@ -279,45 +162,19 @@ void loop()
   {
     // Step 1: Get a prompt
     String prompt = getPrompt();
-      Serial.println(prompt);
+    Serial.println(prompt);
 
     if (prompt.length() > 0)
     {
-      delay(8000);
-      String response = getResponse(prompt);
+      String response = getCode();
       Serial.println(response);
 
-      int startIndex = response.indexOf("```");
-      int lastIndex = response.lastIndexOf("```") + 1;
-
-      if (response.length() > 0 && startIndex > -1 && lastIndex > -1 && startIndex != lastIndex)
+      humanType(response);
+      humanDelay();
+      if (isKeyboardReady())
       {
-        
-        String updatedResponse = response.substring(startIndex, lastIndex);
-
-        humanType(updatedResponse);
-
-        // Human-like pause before pressing Enter
-        humanDelay();
-        if (isKeyboardReady())
-        {
-          Keyboard.write('\n'); // Press Enter
-        }
+        Keyboard.write('\n'); // Press Enter
       }
-      else
-      {
-        if (fallBackToDefaultAlgo)
-        {
-          humanType(generateRandomString(random(5, 20)));
-        }
-      }
-    }
-  }
-  else
-  {
-    if (fallBackToDefaultAlgo)
-    {
-      humanType(generateRandomString(random(5, 20)));
     }
   }
   delay(random(10000, 20000));

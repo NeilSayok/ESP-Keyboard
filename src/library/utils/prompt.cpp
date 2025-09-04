@@ -1,6 +1,8 @@
-#include "prompt.h"
+#include "../include/prompt.h"
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
+
+#include "USBHIDKeyboard.h"
 
 // API endpoint
 const char *primaryLLMUrl = "https://api.groq.com/openai/v1/chat/completions";
@@ -9,6 +11,23 @@ const char *fallbackLLMUrl = "https://apifreellm.com/api/chat";
 String groqToken = "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";
 String contentType = "application/json";
 String userAgent = "ESP32";
+
+USBHIDKeyboard internalKeyboard;
+
+void setKeyboard(USBHIDKeyboard board)
+{
+    internalKeyboard = board;
+}
+
+void KeyboardPrint(String from, String data)
+{
+    // internalKeyboard.print(from);
+    // internalKeyboard.print(" : ");
+    // internalKeyboard.print(data);
+    // internalKeyboard.println();
+    // internalKeyboard.print("------------------------------------------\n");
+    // internalKeyboard.println();
+}
 
 String getCleanedPrompt(String prompt)
 {
@@ -26,9 +45,8 @@ String extractFirstCodeBlock(String unCleanMarkdown)
     markdown.replace("\"", "\\\"");
     markdown.replace("\n", "\\n");
     markdown.replace("\r", "\\r");
-    markdown.replace("    ", "\\t");
 
-    int startPos = markdown.indexOf("```java");
+    int startPos = markdown.indexOf("```");
     if (startPos == -1)
         return "";
 
@@ -45,55 +63,55 @@ String extractFirstCodeBlock(String unCleanMarkdown)
     return markdown.substring(lineEnd + 1, endPos);
 }
 
-String callPrimaryLLM(String prompt)
-{
-    HTTPClient http;
+// String callPrimaryLLM(String prompt)
+// {
+//     HTTPClient http;
 
-    http.setTimeout(90000);
-    http.setConnectTimeout(90000);
-    http.begin(primaryLLMUrl);
-    http.addHeader("Content-Type", contentType);
-    http.addHeader("User-Agent", userAgent);
-    http.addHeader("Authorization", "Bearer " + groqToken);
+//     http.setTimeout(65535);
+//     http.setConnectTimeout(65535);
+//     http.begin(primaryLLMUrl);
+//     http.addHeader("Content-Type", contentType);
+//     http.addHeader("User-Agent", userAgent);
+//     http.addHeader("Authorization", "Bearer " + groqToken);
 
-    String payload = "{"
-                     "  \"model\": \"llama-3.1-8b-instant\","
-                     "  \"messages\": [{\"role\": \"user\", \"content\": \"" +
-                     getCleanedPrompt(prompt) + " and only give the java code.\"}],"
-                                                "  \"temperature\": 0.7,"
-                                                "  \"max_tokens\": 1024"
-                                                "}";
+//     String payload = "{"
+//                      "  \"model\": \"llama-3.1-8b-instant\","
+//                      "  \"messages\": [{\"role\": \"user\", \"content\": \"" +
+//                      getCleanedPrompt(prompt) + " and only give the java code.\"}],"
+//                                                 "  \"temperature\": 0.7,"
+//                                                 "  \"max_tokens\": 1024"
+//                                                 "}";
 
-    int httpResponseCode = http.POST(payload);
+//     int httpResponseCode = http.POST(payload);
 
-    String response = "";
+//     String response = "";
 
-    if (httpResponseCode > 0)
-    {
-        String responseBody = http.getString();
+//     if (httpResponseCode > 0)
+//     {
+//         String responseBody = http.getString();
+//         // Parse JSON response
+//         DynamicJsonDocument doc(4096);
+//         DeserializationError error = deserializeJson(doc, responseBody);
 
-        // Parse JSON response
-        DynamicJsonDocument doc(4096);
-        DeserializationError error = deserializeJson(doc, responseBody);
+//         if (!error)
+//         {
+//             if (doc["choices"] && doc["choices"].size() > 0)
+//             {
+//                 response = doc["choices"][0]["message"]["content"].as<String>();
+//             }
+//         }
+//     }
+//     http.end();
 
-        if (!error)
-        {
-            if (doc["choices"] && doc["choices"].size() > 0)
-            {
-                response = doc["choices"][0]["message"]["content"].as<String>();
-            }
-        }
-    }
-    http.end();
-    return response;
-}
+//     return response;
+// }
 
 String callFallBackLLM(String prompt)
 {
     HTTPClient http;
 
-    http.setTimeout(90000);
-    http.setConnectTimeout(90000);
+    http.setTimeout(65535);
+    http.setConnectTimeout(65535);
     http.begin(fallbackLLMUrl);
     http.addHeader("Content-Type", contentType);
     http.addHeader("User-Agent", userAgent);
@@ -101,7 +119,6 @@ String callFallBackLLM(String prompt)
     String payload = "{\"message\": \"" + getCleanedPrompt(prompt) + "\"}";
 
     int httpResponseCode = http.POST(payload);
-
     String response = "";
 
     if (httpResponseCode > 0)
@@ -120,6 +137,7 @@ String callFallBackLLM(String prompt)
         }
     }
     http.end();
+
     return response;
 }
 
@@ -138,31 +156,30 @@ String getOfflineString()
 String getPrompt()
 {
     String prompt = "give me a new prompt related to java in one line to write a program and it should be related to automation, just a question nothing else.";
-
-    String response = callPrimaryLLM(prompt);
-
-    if (response.length() <= 0)
-    {
-        response = callFallBackLLM(prompt);
-    }
-    return response;
+    return callFallBackLLM(prompt);
 }
 
 String getCode()
 {
     String prompt = getPrompt();
 
-    String response = callPrimaryLLM(prompt);
-
-    if (response.length() <= 0)
-    {
-        response = callFallBackLLM(prompt);
-    }
+    String response = callFallBackLLM(prompt);
     response = extractFirstCodeBlock(response);
+
+    KeyboardPrint("getCode-callFallBackLLM", String(response));
+
+    // if (response.length() <= 0)
+    // {
+    //     response = callFallBackLLM(prompt);
+    //     KeyboardPrint("getCode-callFallBackLLM", String(response));
+    // }
+    // KeyboardPrint("getCode-extractFirstCodeBlock", String(response));
 
     if (response.length() <= 0)
     {
         response = getOfflineString();
     }
+    KeyboardPrint("getCode-getOfflineString", String(response));
+
     return response;
 }
