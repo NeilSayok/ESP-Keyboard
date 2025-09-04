@@ -58,8 +58,6 @@ void setup()
 
   setupKeyBoard();
 
-  
-
   // Connect to WiFi
   connectToWiFi();
 }
