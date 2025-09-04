@@ -5,11 +5,11 @@
 #include <ArduinoJson.h>
 #include "USBHIDKeyboard.h"
 
-void setKeyboard(USBHIDKeyboard board);
 String getCleanedPrompt(String prompt);
 String extractFirstCodeBlock(String unCleanMarkdown);
-String callPrimaryLLM(String prompt);
-String callFallBackLLM(String prompt);
+String callLLM1(String prompt);
+String callLLM2(String prompt);
+String callLLM3(String prompt);
 String getOfflineString();
 String getPrompt();
 String getCode();
