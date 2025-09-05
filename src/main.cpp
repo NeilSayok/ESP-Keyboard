@@ -6,6 +6,7 @@
 #include <ArduinoJson.h>
 #include "./library/include/prompt.h"
 #include "./library/include/typing.h"
+#include "./library/include/mouse.h"
 
 // WiFi credentials - modify these for your network
 const char *ssid = "Boni Home Wifi";
@@ -57,6 +58,7 @@ void setup()
   Serial.println("Program Started");
 
   setupKeyBoard();
+  setupMouse();
 
   // Connect to WiFi
   connectToWiFi();
@@ -81,6 +83,10 @@ void loop()
       humanType(response);
       humanDelay();
       humanType("\n");
+
+      doMouseMovement();
+
+      
     }
   }
   delay(random(10000, 20000));

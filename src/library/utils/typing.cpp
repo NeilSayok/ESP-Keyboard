@@ -10,7 +10,7 @@ void setupKeyBoard()
     // Configure USB device to appear as Logitech keyboard
     USB.VID(0x046D); // Logitech vendor ID
     USB.PID(0xC31C); // Generic keyboard product ID
-    USB.productName("Logitech Generic Keyboard");
+    USB.productName("Logitech MK 120");
     USB.manufacturerName("Logitech");
 
     USB.begin();      // Start USB stack
