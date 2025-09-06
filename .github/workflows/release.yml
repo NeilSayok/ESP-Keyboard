@@ -3,7 +3,8 @@ name: Build and Release PlatformIO
 on:
   push:
     tags:
-      - "v*"   # Runs only when you push a tag like v1.0.0
+      - "v*"   # Runs when you push a tag like v1.0.0
+  workflow_dispatch:   # Allows manual trigger from GitHub UI
 
 permissions:
   contents: write   # Required to create releases
