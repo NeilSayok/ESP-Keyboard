@@ -3,18 +3,21 @@ name: Build and Release PlatformIO
 on:
   push:
     tags:
-      - "v*"   # Triggers only when you push a tag like v1.0.0
+      - "v*"   # Runs only when you push a tag like v1.0.0
+
+permissions:
+  contents: write   # Required to create releases
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout the code
+      # Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Set up Python (PlatformIO requires it)
+      # Set up Python (needed for PlatformIO)
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -24,11 +27,11 @@ jobs:
       - name: Install PlatformIO
         run: pip install platformio
 
-      # Build firmware
+      # Build all environments (or specify with `pio run -e <env>`)
       - name: Build firmware
         run: pio run
 
-      # Upload compiled firmware as an artifact
+      # Upload compiled firmware as artifact
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
@@ -40,16 +43,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Download firmware artifact
+      # Download artifact from build job
       - name: Download firmware
         uses: actions/download-artifact@v4
         with:
           name: firmware
 
-      # Create GitHub release and upload binaries
+      # Create GitHub Release and upload binaries
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: "*.bin"
+          files: "firmware/**/*.bin"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
